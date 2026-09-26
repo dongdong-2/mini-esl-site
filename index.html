@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能电子价签蓝牙控制中心</title>
+  <link rel="stylesheet" type="text/css" href="./css/style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <div class="header">
+      <h1>🏷️ 迷你价签(高分版)</h1>
+      <p>专业的电子价签管理系统 - 支持2.13英寸价签 (分辨率: 104×212 和 122×250)</p>
+      <br>
+      <span class="demo-badge">🎮 演示模式（无蓝牙）</span>
+    </div>
+
+    <!-- 连接面板 -->
+    <div class="connection-panel">
+      <div class="connection-buttons">
+        <button id="connectbutton" class="btn btn-success" onclick="preConnect();">
+          <span class="status-indicator"></span>连接设备
+        </button>
+        <button class="btn btn-warning" onclick="reConnect();">🔄 重新连接</button>
+        <button class="btn btn-info" onclick="document.getElementById('log').value = '';">🗑️ 清空日志</button>
+      </div>
+    </div>
+
+    <!-- 标签页 -->
+    <div class="tabs">
+      <div class="tab" onclick="showContent('content1')">⚙️ 基础控制</div>
+      <div class="tab" onclick="showContent('content2')">🏷️ 迷你价签</div>
+      <div class="tab" onclick="showContent('content3')">🛒 商品标签</div>
+    </div>
+
+    <!-- ============ 基础控制 ============ -->
+    <div id="content1" class="content">
+      <div class="feature-grid">
+        <!-- 指令控制 -->
+        <div class="card">
+          <div class="card-title">📡 指令控制</div>
+          <div class="form-group">
+            <label class="form-label">自定义指令（16进制）</label>
+            <textarea id="cmdTXT" class="form-control" placeholder="输入16进制指令代码，如 E2" rows="6">E2</textarea>
+          </div>
+          <div class="button-group">
+            <button class="btn" onclick="triggerRxTxCmd(document.getElementById('cmdTXT').value);">发 送</button>
+          </div>
+        </div>
+
+        <!-- 快捷操作 -->
+        <div class="card">
+          <div class="card-title">🎮 快捷操作</div>
+          <div class="button-group">
+            <button class="btn btn-success" onclick="triggerShowCmd('e100')">📷 图片模式</button>
+            <button class="btn btn-success" onclick="triggerShowCmd('e101')">📅 日历模式</button>
+            <button class="btn btn-success" onclick="triggerShowCmd('e102')">🕐 时钟模式</button>
+            <button class="btn btn-success" onclick="triggerShowCmd('e103')">⚡ 自定义模式</button>
+            <button class="btn btn-warning" onclick="triggerRxTxCmd('EFFEFF')">💾 保存参数</button>
+          </div>
+        </div>
+
+        <!-- 图片上传 -->
+        <div class="card">
+          <div class="card-title">📁 图片上传</div>
+          <div class="form-group">
+            <label class="form-label">选择图片文件</label>
+            <input type="file" id="image_file" onchange="updateImageToCanvas(document.getElementById('image_file'), document.getElementById('canvas'))" accept=".png,.jpg,.jpeg,.bmp,.webp" class="form-control">
+            <small class="form-hint">支持 PNG、JPG、BMP、WebP 格式</small>
+          </div>
+        </div>
+
+        <!-- 图像处理 -->
+        <div class="card">
+          <div class="card-title">🎨 图像处理</div>
+          <div class="form-group">
+            <label class="form-label">抖动算法</label>
+            <select id="dithering" class="form-control" onchange="reprocessCanvas()">
+              <optgroup label="黑白处理">
+                <option value="none" selected="selected">二值化处理</option>
+                <option value="bayer">Bayer 抖动</option>
+                <option value="floydsteinberg">Floyd-Steinberg 抖动</option>
+                <option value="Atkinson">Atkinson 抖动 (推荐)</option>
+              </optgroup>
+              <optgroup label="三色处理 (黑白红)">
+                <option value="bwr_none">三色 二值化处理</option>
+                <option value="bwr_floydsteinberg">三色 Floyd-Steinberg</option>
+                <option value="bwr_Atkinson">三色 Atkinson</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">二值化阈值 (0-255)</label>
+            <input type="number" max="255" min="0" value="128" id="threshold" class="form-control" onchange="reprocessCanvas()">
+          </div>
+          <div class="button-group">
+            <button class="btn" onclick="reprocessCanvas()">🔄 重新处理</button>
+            <button class="btn btn-success" onclick="uploadImageCanvas(document.getElementById('canvas'), 0)">📤 上传到设备</button>
+          </div>
+        </div>
+
+        <!-- 画布预览 -->
+        <div class="card">
+          <div class="card-title">🖼️ 画布预览</div>
+          <div class="canvas-container">
+            <canvas id="canvas" width="250" height="122"></canvas>
+          </div>
+          <div class="button-group">
+            <button class="btn" onclick="clearCanvas()">🧹 清空画布</button>
+            <button class="btn btn-info" onclick="imageSaveAs(256)">💾 保存为 .bin</button>
+          </div>
+        </div>
+
+        <!-- 设备激活 -->
+        <div class="card">
+          <div class="card-title">🔑 设备激活</div>
+          <div class="form-group">
+            <label class="form-label">激活码(<a href="https://epd.eled.top/regcode/" target="_blank" rel="noopener">计算激活码</a>)</label>
+            <div class="flex-row">
+              <input type="text" id="reg_code" class="form-control" placeholder="请输入设备激活码">
+              <button class="btn" onclick="devReg()">激活设备</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 时间与设备设置 -->
+        <div class="card">
+          <div class="card-title">⏰ 时间与设备设置</div>
+          <div class="form-group">
+            <label class="form-label">设置设备时间</label>
+            <div class="button-group">
+              <button class="btn" onclick="setTime()">🕐 同步当前时间</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">指定时间</label>
+            <div class="flex-row">
+              <input type="datetime-local" id="trip-start" class="form-control">
+              <button class="btn" onclick="setPixTime()">设 置</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">时区 (UTC 偏移)</label>
+            <div class="flex-row">
+              <select id="timezone" class="form-control">
+                <option value="8" selected="selected">UTC+8 (北京时间)</option>
+                <option value="0">UTC+0</option>
+                <option value="1">UTC+1</option>
+                <option value="2">UTC+2</option>
+                <option value="3">UTC+3</option>
+                <option value="4">UTC+4</option>
+                <option value="5">UTC+5</option>
+                <option value="6">UTC+6</option>
+                <option value="7">UTC+7</option>
+                <option value="9">UTC+9</option>
+                <option value="10">UTC+10</option>
+                <option value="11">UTC+11</option>
+                <option value="12">UTC+12</option>
+              </select>
+              <button class="btn" onclick="modifyTimeZone()">设 置</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">刷新模式</label>
+            <div class="flex-row">
+              <select id="refresh_mode" class="form-control">
+                <option value="0" selected="selected">模式 0</option>
+                <option value="1">模式 1</option>
+                <option value="2">模式 2</option>
+                <option value="3">模式 3</option>
+              </select>
+              <button class="btn" onclick="modifyRefreshMode()">设 置</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 迷你价签 ============ -->
+    <div id="content2" class="content">
+      <div class="feature-grid">
+        <div class="card">
+          <div class="card-title">✏️ 价签内容编辑</div>
+          <div class="form-group">
+            <label class="form-label">品牌名（多个用逗号分隔）</label>
+            <input type="text" id="text_name" value="BoLoN,xxxx,BoBo" class="form-control" oninput="canvasRefresh()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">零售价</label>
+            <input type="text" id="text_money" value="599.00" class="form-control" oninput="canvasRefresh()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">单位</label>
+            <input type="text" id="text_unit" value="套" class="form-control" oninput="canvasRefresh()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">建议</label>
+            <input type="text" id="text_remarks" value="建议在XXXX使用" class="form-control" oninput="canvasRefresh()">
+          </div>
+          <div class="button-group">
+            <button class="btn btn-success" onclick="uploadMiniPriceTag()">📤 上传价签图片到设备</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🖼️ 显示预览</div>
+          <div class="canvas-container">
+            <canvas width="250" height="122" id="text_data_canvas_1" name="text_data_canvas"></canvas>
+          </div>
+          <small class="form-hint">实时预览，修改左侧内容后自动刷新</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 商品标签 ============ -->
+    <div id="content3" class="content">
+      <div class="feature-grid">
+        <div class="card">
+          <div class="card-title">✏️ 标签内容编辑</div>
+          <div class="form-group">
+            <label class="form-label">产品名（含规格）</label>
+            <input type="text" id="goods_name" value="NAK 控油蓬松洗发乳 645g" class="form-control" oninput="canvasRefreshGoods()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">价格</label>
+            <div class="flex-row">
+              <input type="text" id="goods_price_int" value="49" class="form-control" oninput="canvasRefreshGoods()" placeholder="整数">
+              <input type="text" id="goods_price_dec" value="9" class="form-control" oninput="canvasRefreshGoods()" placeholder="小数">
+              <input type="text" id="goods_unit" value="645g" class="form-control" oninput="canvasRefreshGoods()" placeholder="单位">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">产地 / 说明</label>
+            <input type="text" id="goods_origin" value="产地：见瓶身" class="form-control" oninput="canvasRefreshGoods()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">副标题</label>
+            <input type="text" id="goods_subtitle" value="茶树精油洗发乳液" class="form-control" oninput="canvasRefreshGoods()">
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📷 二维码 / 条形码</div>
+          <div class="form-group">
+            <label class="form-label">二维码 PNG（黑前景白底最佳）</label>
+            <input type="file" id="goods_qr" accept=".png,.jpg,.jpeg,.bmp,.webp" class="form-control" onchange="onQrCodeChange(this)">
+            <small class="form-hint">未上传时显示占位框；建议纯黑白 PNG（透明背景）</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">条形码 PNG（黑前景白底最佳）</label>
+            <input type="file" id="goods_barcode" accept=".png,.jpg,.jpeg,.bmp,.webp" class="form-control" onchange="onBarcodeChange(this)">
+            <small class="form-hint">建议上传<strong>不含数字行</strong>的纯条码 PNG（数字行由下方字段单独绘制，更清晰）</small>
+          </div>
+          <div class="form-group">
+            <label class="form-label">条形码号（画布上独立绘制，可读性更佳）</label>
+            <input type="text" id="goods_barcode_text" value="3832455350557213070  01" class="form-control" oninput="canvasRefreshGoods()" placeholder="例如：3832455350557213070  01">
+          </div>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+          <div class="card-title">🖼️ 显示预览</div>
+          <div class="canvas-container">
+            <canvas id="goods_canvas" width="250" height="122"></canvas>
+          </div>
+          <div class="button-group">
+            <button class="btn" onclick="clearGoodsExtras()">🧹 清除二维码/条形码</button>
+            <button class="btn btn-info" onclick="showGoodsActualSize()">🔍 查看 1:1 实际像素</button>
+            <button class="btn btn-success" onclick="uploadGoodsTag()">📤 上传商品标签到设备</button>
+          </div>
+          <small class="form-hint">📐 预览模糊是浏览器把 250×122 放大显示导致的；设备上一像素 = 一像素，非常锐利。点「查看 1:1」可看到与设备完全一致的清晰度。</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- 商品标签 1:1 实际像素预览弹窗 -->
+    <div id="actualSizeModal" class="modal-overlay" onclick="closeGoodsActualSize(event)">
+      <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <span>🔍 1:1 实际像素预览（与设备显示完全一致）</span>
+          <button class="modal-close" onclick="closeGoodsActualSize()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="actual-size-wrap">
+            <canvas id="goods_canvas_actual"></canvas>
+          </div>
+          <p class="form-hint" style="margin-top: 12px;">
+            这个 250×122 画布与设备物理像素 1:1 对应。<br>
+            <strong>这里看起来什么样，设备上就什么样。</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 系统日志 -->
+    <div class="log-container">
+      <div class="log-header">📋 系统日志</div>
+      <textarea id="log" readonly placeholder="系统日志将在这里显示..."></textarea>
+    </div>
+  </div>
+
+  <!-- 脚本 -->
+  <script type="application/javascript" src="./js/utils.js"></script>
+  <script type="application/javascript" src="./js/hz_code.js"></script>
+  <script type="application/javascript" src="./js/dithering.js"></script>
+  <script type="application/javascript" src="./js/main.js"></script>
+
+  <script type="application/javascript">
+    // 演示模式检测：无蓝牙 API 时标记页面，显示徽标
+    (function () {
+      if (!('bluetooth' in navigator)) {
+        document.body.classList.add('demo-mode');
+      }
+    })();
+  </script>
+</body>
+</html>
+
