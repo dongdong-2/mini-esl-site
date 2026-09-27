@@ -617,9 +617,9 @@ async function uploadMiniPriceTag() {
  * 商品标签模板
  * ------------------------------------------------------------
  * 布局（画布 250×122）：
- *   y=0-24    红色商品栏 + 白色产品名
- *   y=24-76   左侧主价格 / 右侧二维码
- *   y=76-122  左侧条形码 / 右侧产地与说明
+ *   y=0-30    加高红色商品栏 + 白色产品名
+ *   y=30-80   左侧主价格 / 右侧二维码
+ *   y=80-122  左侧条形码 / 右侧产地与说明
  * ============================================================ */
 
 let qrImageBitmap = null;
@@ -690,17 +690,9 @@ function drawImageContain(ctx, img, x, y, w, h) {
 function canvasRefreshGoods() {
   const canvas = document.getElementById('goods_canvas');
   if (!canvas) return;
-
-  // 文字先在 4 倍分辨率上绘制，再高质量缩小到设备像素。
-  // 这能保留更多圆弧轮廓，避免小字号直接栅格化产生明显锯齿。
-  const renderScale = 4;
-  const renderCanvas = document.createElement('canvas');
-  renderCanvas.width = canvas.width * renderScale;
-  renderCanvas.height = canvas.height * renderScale;
-  const ctx = renderCanvas.getContext('2d');
-  ctx.scale(renderScale, renderScale);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  // 直接在设备原生 250×122 像素上绘制，避免缩放产生灰边和模糊。
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -711,16 +703,16 @@ function canvasRefreshGoods() {
   const origin = document.getElementById('goods_origin').value || '';
   const subTitle = document.getElementById('goods_subtitle').value || '';
 
-  const uiFont = '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif';
-  const numberFont = '"Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif';
+  const uiFont = '"Microsoft YaHei", "PingFang SC", Arial, sans-serif';
+  const numberFont = 'Arial, "Microsoft YaHei", sans-serif';
 
-  // 1. 红色商品栏：比旧版更高，让名称成为清晰的第一视觉层级
+  // 1. 红色商品栏加高：给白字更多垂直空间，设备上更醒目。
   ctx.fillStyle = '#FF0000';
-  ctx.fillRect(0, 0, 250, 24);
+  ctx.fillRect(0, 0, 250, 30);
   ctx.fillStyle = '#FFFFFF';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  drawFitTextCenter(ctx, productName, 125, 12, 238, 17, 11, uiFont, '700 ');
+  drawFitTextCenter(ctx, productName, 125, 15, 238, 18, 12, uiFont, '800 ');
   ctx.textAlign = 'start';
   ctx.textBaseline = 'alphabetic';
 
@@ -728,8 +720,8 @@ function canvasRefreshGoods() {
   ctx.strokeStyle = '#000000';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, 24.5);
-  ctx.lineTo(250, 24.5);
+  ctx.moveTo(0, 30.5);
+  ctx.lineTo(250, 30.5);
   ctx.stroke();
 
   // 3. 大价格：整组自适应，既醒目又不会挤入二维码区域
@@ -756,7 +748,7 @@ function canvasRefreshGoods() {
   } while (priceSize > 29);
 
   const priceX = 8;
-  const priceBaseline = 69;
+  const priceBaseline = 75;
   ctx.font = '800 ' + priceSize + 'px ' + numberFont;
   ctx.fillText(cleanInt, priceX, priceBaseline);
   ctx.font = '800 ' + decSize + 'px ' + numberFont;
@@ -765,10 +757,12 @@ function canvasRefreshGoods() {
   ctx.fillText(unitText, priceX + intW + decW + 5, priceBaseline - 1);
 
   // 4. 二维码：四周留白，避免紧贴价格和边框
-  const qrX = 198, qrY = 29, qrW = 42, qrH = 42;
+  const qrX = 198, qrY = 34, qrW = 42, qrH = 42;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(qrX - 3, qrY - 3, qrW + 6, qrH + 6);
-  if (!qrImageBitmap) {
+  if (qrImageBitmap) {
+    drawImageContain(ctx, qrImageBitmap, qrX, qrY, qrW, qrH);
+  } else {
     ctx.strokeStyle = '#B8B8B8';
     ctx.setLineDash([3, 2]);
     ctx.strokeRect(qrX, qrY, qrW, qrH);
@@ -785,13 +779,15 @@ function canvasRefreshGoods() {
   // 5. 底部分割线
   ctx.strokeStyle = '#000000';
   ctx.beginPath();
-  ctx.moveTo(0, 76.5);
-  ctx.lineTo(250, 76.5);
+  ctx.moveTo(0, 80.5);
+  ctx.lineTo(250, 80.5);
   ctx.stroke();
 
   // 6. 底部：条形码与说明分栏，沿用参考模板的留白比例
-  const barX = 7, barY = 82, barW = 116, barH = 26;
-  if (!barImageBitmap) {
+  const barX = 7, barY = 84, barW = 116, barH = 22;
+  if (barImageBitmap) {
+    drawImageContain(ctx, barImageBitmap, barX, barY, barW, barH);
+  } else {
     ctx.strokeStyle = '#B8B8B8';
     ctx.setLineDash([3, 2]);
     ctx.strokeRect(barX, barY, barW, barH);
@@ -809,7 +805,7 @@ function canvasRefreshGoods() {
   const barcodeText = document.getElementById('goods_barcode_text').value || '';
   if (barcodeText) {
     ctx.fillStyle = '#000000';
-    ctx.font = '8px ' + numberFont;
+    ctx.font = '9px ' + numberFont;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(barcodeText, barX + barW / 2, 116);
@@ -819,26 +815,11 @@ function canvasRefreshGoods() {
 
   // 右侧说明：两行加粗，和参考图一样保持大字、短行、足够留白
   ctx.fillStyle = '#000000';
-  drawFitText(ctx, origin, 135, 96, 108, 14, 10, uiFont, '700 ');
-  drawFitText(ctx, subTitle, 135, 117, 108, 14, 10, uiFont, '700 ');
+  drawFitText(ctx, origin, 135, 98, 108, 14, 10, uiFont, '800 ');
+  drawFitText(ctx, subTitle, 135, 118, 108, 14, 10, uiFont, '800 ');
 
-  // 将高分辨率文字缩到设备画布，保留更圆润、更均匀的笔画轮廓。
-  const outputCtx = canvas.getContext('2d');
-  outputCtx.clearRect(0, 0, canvas.width, canvas.height);
-  outputCtx.imageSmoothingEnabled = true;
-  outputCtx.imageSmoothingQuality = 'high';
-  outputCtx.drawImage(renderCanvas, 0, 0, canvas.width, canvas.height);
-
-  // 二维码和条形码最后按设备像素直接覆盖，避免高质量缩放使码点发糊。
-  if (qrImageBitmap) {
-    drawImageContain(outputCtx, qrImageBitmap, qrX, qrY, qrW, qrH);
-  }
-  if (barImageBitmap) {
-    drawImageContain(outputCtx, barImageBitmap, barX, barY, barW, barH);
-  }
-
-  // 较低阈值可减少笔画外沿过度增粗，让圆角和字腔更自然。
-  convertDithering(canvas, 'bwr_none', 160);
+  // 商品文字使用直接三色硬阈值，不使用误差扩散抖动；优先保证笔画清楚。
+  convertDithering(canvas, 'bwr_none', 180);
 }
 
 /** 商品标签 → 上传到设备 */
