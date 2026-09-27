@@ -491,9 +491,10 @@ function strLen(str) {
  * 文本超出 maxWidth 时逐级缩小字号；缩至 minFontSize 仍放不下则截断并追加省略号
  * @returns {string} 实际绘制的文本
  */
-function drawFitText(ctx, text, x, y, maxWidth, maxFontSize, minFontSize, fontFamily) {
+function drawFitText(ctx, text, x, y, maxWidth, maxFontSize, minFontSize, fontFamily, fontPrefix) {
+  fontPrefix = fontPrefix || '';
   let size = maxFontSize;
-  const font = (s) => s + 'px ' + fontFamily;
+  const font = (s) => fontPrefix + s + 'px ' + fontFamily;
   ctx.font = font(size);
   // 1. 优先缩小字号
   while (size > minFontSize && ctx.measureText(text).width > maxWidth) {
@@ -616,9 +617,9 @@ async function uploadMiniPriceTag() {
  * 商品标签模板
  * ------------------------------------------------------------
  * 布局（画布 250×122）：
- *   y=0-22    红色顶条 + 白色产品名
- *   y=22-90   左侧大价格+单位 / 右侧二维码
- *   y=90-122  左侧条形码 / 右侧副标题
+ *   y=0-24    红色商品栏 + 白色产品名
+ *   y=24-76   左侧主价格 / 右侧二维码
+ *   y=76-122  左侧条形码 / 右侧产地与说明
  * ============================================================ */
 
 let qrImageBitmap = null;
@@ -701,107 +702,120 @@ function canvasRefreshGoods() {
   const origin = document.getElementById('goods_origin').value || '';
   const subTitle = document.getElementById('goods_subtitle').value || '';
 
-  // 1. 顶部红色横条 + 白色产品名（y=0-22，占 18% 高度，严格按样图）
+  const uiFont = '"Microsoft YaHei", "PingFang SC", Arial, sans-serif';
+  const numberFont = 'Arial, "Microsoft YaHei", sans-serif';
+
+  // 1. 红色商品栏：比旧版更高，让名称成为清晰的第一视觉层级
   ctx.fillStyle = '#FF0000';
-  ctx.fillRect(0, 0, 250, 22);
+  ctx.fillRect(0, 0, 250, 24);
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = 'bold 14px 微软雅黑';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // 居中绘制（x=125 是画布中线），超长时缩字号
-  ctx.fillText(productName, 125, 11);
-  if (ctx.measureText(productName).width > 240) {
-    // 重画一次自适应
-    ctx.fillStyle = '#FF0000';
-    ctx.fillRect(0, 0, 250, 22);
-    ctx.fillStyle = '#FFFFFF';
-    drawFitTextCenter(ctx, productName, 4, 11, 242, 14, 8, '微软雅黑', 'bold ');
-  }
+  drawFitTextCenter(ctx, productName, 125, 12, 238, 17, 11, uiFont, '700 ');
   ctx.textAlign = 'start';
   ctx.textBaseline = 'alphabetic';
 
-  // 2. 中间分隔线 y=22
+  // 2. 主信息区上边线
   ctx.strokeStyle = '#000000';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, 22);
-  ctx.lineTo(250, 22);
+  ctx.moveTo(0, 24.5);
+  ctx.lineTo(250, 24.5);
   ctx.stroke();
 
-  // 3. 中间区 y=23-69（46px，占 37%）：价格（左超大号）+ 二维码（右上）
+  // 3. 大价格：整组自适应，既醒目又不会挤入二维码区域
   ctx.fillStyle = '#000000';
-  // "49" 32px 加粗（与样图完全一致：超大号黑色）
-  ctx.font = 'bold 32px 微软雅黑';
-  ctx.fillText(priceInt, 4, 62);
-  const intW = ctx.measureText(priceInt).width;
-  // ".9" 32px 加粗（与"49"同字号，顶部对齐——基线也是 y=62）
-  ctx.font = 'bold 32px 微软雅黑';
-  ctx.fillText('.' + priceDec, 4 + intW + 1, 62);
-  const decW = ctx.measureText('.' + priceDec).width;
-  // "元/645g" 9px（与价格基线对齐，数字右下方）
-  ctx.font = '9px 微软雅黑';
-  ctx.fillText('元/' + unit, 4 + intW + decW + 4, 62);
+  const cleanInt = String(priceInt).trim() || '0';
+  const cleanDec = String(priceDec).trim().replace(/^\./, '') || '0';
+  const unitText = '元/' + unit;
+  let priceSize = 43;
+  let decSize = 36;
+  const unitSize = 10;
+  let intW = 0;
+  let decW = 0;
+  let unitW = 0;
+  do {
+    decSize = Math.max(25, Math.round(priceSize * 0.84));
+    ctx.font = '800 ' + priceSize + 'px ' + numberFont;
+    intW = ctx.measureText(cleanInt).width;
+    ctx.font = '800 ' + decSize + 'px ' + numberFont;
+    decW = ctx.measureText('.' + cleanDec).width;
+    ctx.font = '700 ' + unitSize + 'px ' + uiFont;
+    unitW = ctx.measureText(unitText).width;
+    if (intW + decW + unitW + 8 <= 178) break;
+    priceSize -= 2;
+  } while (priceSize > 29);
 
-  // 4. 右侧二维码 44×44 (x=200-244, y=24-68)，严格按样图
-  const qrX = 200, qrY = 24, qrW = 44, qrH = 44;
+  const priceX = 8;
+  const priceBaseline = 69;
+  ctx.font = '800 ' + priceSize + 'px ' + numberFont;
+  ctx.fillText(cleanInt, priceX, priceBaseline);
+  ctx.font = '800 ' + decSize + 'px ' + numberFont;
+  ctx.fillText('.' + cleanDec, priceX + intW, priceBaseline);
+  ctx.font = '700 ' + unitSize + 'px ' + uiFont;
+  ctx.fillText(unitText, priceX + intW + decW + 5, priceBaseline - 1);
+
+  // 4. 二维码：四周留白，避免紧贴价格和边框
+  const qrX = 198, qrY = 29, qrW = 42, qrH = 42;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(qrX - 3, qrY - 3, qrW + 6, qrH + 6);
   if (qrImageBitmap) {
     drawImageContain(ctx, qrImageBitmap, qrX, qrY, qrW, qrH);
   } else {
-    ctx.strokeStyle = '#CCCCCC';
+    ctx.strokeStyle = '#B8B8B8';
     ctx.setLineDash([3, 2]);
     ctx.strokeRect(qrX, qrY, qrW, qrH);
     ctx.setLineDash([]);
-    ctx.fillStyle = '#999999';
-    ctx.font = '9px 宋体';
-    ctx.textAlign = 'center';
-    ctx.fillText('二维码', qrX + qrW / 2, qrY + 26);
-    ctx.textAlign = 'start';
-  }
-
-  // 5. 底部分割线 y=69
-  ctx.strokeStyle = '#000000';
-  ctx.beginPath();
-  ctx.moveTo(0, 69);
-  ctx.lineTo(250, 69);
-  ctx.stroke();
-
-  // 6. 底部 y=70-122（52px，占 43%）：左条形码 + 右副标题
-  // 6a. 左条形码图：仅占上半区 120×32 (x=4-124, y=70-102)，
-  //     下方留 20px 高度单独绘制清晰数字行
-  const barX = 4, barY = 70, barW = 120, barH = 32;
-  if (barImageBitmap) {
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(barImageBitmap, barX, barY, barW, barH);
-  } else {
-    ctx.strokeStyle = '#CCCCCC';
-    ctx.setLineDash([3, 2]);
-    ctx.strokeRect(barX, barY, barW, barH);
-    ctx.setLineDash([]);
-    ctx.fillStyle = '#999999';
-    ctx.font = '10px 宋体';
-    ctx.textAlign = 'center';
-    ctx.fillText('请上传条形码', barX + barW / 2, barY + 20);
-    ctx.textAlign = 'start';
-  }
-
-  // 6b. 条形码下方数字行（独立绘制，9px 字号居中，y=104-120）
-  //     即使用户上传的 PNG 含数字行，这里也覆盖上去——确保设备上清晰可读
-  const barcodeText = document.getElementById('goods_barcode_text').value || '';
-  if (barcodeText) {
-    ctx.fillStyle = '#000000';
-    ctx.font = '9px 微软雅黑';
+    ctx.fillStyle = '#777777';
+    ctx.font = '9px ' + uiFont;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    // 居中绘制到 120 宽区中心（x = 4 + 60 = 64）
-    ctx.fillText(barcodeText, 64, 112);
+    ctx.fillText('二维码', qrX + qrW / 2, qrY + qrH / 2);
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
   }
 
-  // 6c. 右侧副标题（x=130-244，两行 14px——加粗字号让 1-2px 笔画连贯可读）
+  // 5. 底部分割线
+  ctx.strokeStyle = '#000000';
+  ctx.beginPath();
+  ctx.moveTo(0, 76.5);
+  ctx.lineTo(250, 76.5);
+  ctx.stroke();
+
+  // 6. 底部：条形码与说明分栏，沿用参考模板的留白比例
+  const barX = 7, barY = 82, barW = 116, barH = 26;
+  if (barImageBitmap) {
+    drawImageContain(ctx, barImageBitmap, barX, barY, barW, barH);
+  } else {
+    ctx.strokeStyle = '#B8B8B8';
+    ctx.setLineDash([3, 2]);
+    ctx.strokeRect(barX, barY, barW, barH);
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#777777';
+    ctx.font = '9px ' + uiFont;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('请上传条形码', barX + barW / 2, barY + barH / 2);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // 条形码数字独立渲染，避免图片缩放后数字发虚
+  const barcodeText = document.getElementById('goods_barcode_text').value || '';
+  if (barcodeText) {
+    ctx.fillStyle = '#000000';
+    ctx.font = '8px ' + numberFont;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(barcodeText, barX + barW / 2, 116);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // 右侧说明：两行加粗，和参考图一样保持大字、短行、足够留白
   ctx.fillStyle = '#000000';
-  drawFitText(ctx, origin, 130, 92, 114, 14, 9, '微软雅黑');
-  drawFitText(ctx, subTitle, 130, 114, 114, 14, 9, '微软雅黑');
+  drawFitText(ctx, origin, 135, 96, 108, 14, 10, uiFont, '700 ');
+  drawFitText(ctx, subTitle, 135, 117, 108, 14, 10, uiFont, '700 ');
 
   // 三色阈值：阈值 180 让文字抗锯齿浅灰边被判黑（避免 1-2px 细笔画断裂）
   convertDithering(canvas, 'bwr_none', 180);
