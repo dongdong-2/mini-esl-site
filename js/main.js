@@ -816,9 +816,9 @@ async function uploadGoodsTag() {
 }
 
 /**
- * 1:1 实际像素预览弹窗
- * 把主预览画布的当前内容复制到一个新画布，CSS 强制 250×122 显示，
- * 配合 image-rendering: pixelated 禁用浏览器抗锯齿，呈现与设备完全一致的硬边效果
+ * 高清像素预览弹窗
+ * 逻辑像素保持 250×122；显示时按 2× 放大，并根据 devicePixelRatio
+ * 提升 backing store，避免 Windows 缩放和高分屏的二次插值造成文字模糊。
  */
 function showGoodsActualSize() {
   const src = document.getElementById('goods_canvas');
@@ -827,12 +827,19 @@ function showGoodsActualSize() {
   canvasRefreshGoods();
   const dst = document.getElementById('goods_canvas_actual');
   if (!dst) return;
-  dst.width = 250;
-  dst.height = 122;
+  const cssScale = window.matchMedia('(max-width: 600px)').matches ? 1 : 2;
+  const cssWidth = 250 * cssScale;
+  const cssHeight = 122 * cssScale;
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+
+  dst.width = Math.round(cssWidth * dpr);
+  dst.height = Math.round(cssHeight * dpr);
+  dst.style.width = cssWidth + 'px';
+  dst.style.height = cssHeight + 'px';
   const dCtx = dst.getContext('2d');
   dCtx.imageSmoothingEnabled = false;
-  dCtx.clearRect(0, 0, 250, 122);
-  dCtx.drawImage(src, 0, 0);
+  dCtx.clearRect(0, 0, dst.width, dst.height);
+  dCtx.drawImage(src, 0, 0, dst.width, dst.height);
   document.getElementById('actualSizeModal').classList.add('active');
 }
 

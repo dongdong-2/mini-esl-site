@@ -329,8 +329,11 @@ textarea.form-control { font-family: 'Consolas', 'Monaco', monospace; resize: ve
     0 6px 16px rgba(0, 0, 0, 0.28),
     0 2px 4px rgba(0, 0, 0, 0.15),
     inset 0 0 0 1px #e6e6e6;
+  width: 500px;
   max-width: 100%;
   height: auto;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
 }
 
 @media (max-width: 768px) {
@@ -491,20 +494,33 @@ body.demo-mode .demo-badge { display: inline-block; }
 .actual-size-wrap {
   display: flex;
   justify-content: center;
+  align-items: center;
   background: #f0f0f0;
   padding: 20px;
   border-radius: 8px;
+  overflow: auto;
 }
 .actual-size-wrap canvas {
-  /* 1:1 实际像素，禁止缩放，模拟设备物理显示效果 */
-  width: 250px !important;
-  height: 122px !important;
-  image-rendering: pixelated;
+  /* 2× 整数倍预览；实际 backing store 由 JS 按 DPR 提升，避免系统缩放造成模糊 */
+  width: 500px;
+  height: 244px;
+  max-width: 100%;
+  object-fit: contain;
   image-rendering: -moz-crisp-edges;
   image-rendering: crisp-edges;
+  image-rendering: pixelated;
   border: 4px solid #4a4a4a;
   border-radius: 2px;
   background: white;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 600px) {
+  .modal-body { padding: 12px; }
+  .actual-size-wrap { padding: 12px; }
+  .actual-size-wrap canvas {
+    width: 100%;
+    height: auto;
+  }
 }
 

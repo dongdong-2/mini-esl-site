@@ -265,7 +265,7 @@
           </div>
           <div class="button-group">
             <button class="btn" onclick="clearGoodsExtras()">🧹 清除二维码/条形码</button>
-            <button class="btn btn-info" onclick="showGoodsActualSize()">🔍 查看 1:1 实际像素</button>
+            <button class="btn btn-info" onclick="showGoodsActualSize()">🔍 查看高清像素预览</button>
             <button class="btn btn-success" onclick="uploadGoodsTag()">📤 上传商品标签到设备</button>
           </div>
           <small class="form-hint">📐 预览模糊是浏览器把 250×122 放大显示导致的；设备上一像素 = 一像素，非常锐利。点「查看 1:1」可看到与设备完全一致的清晰度。</small>
@@ -277,7 +277,7 @@
     <div id="actualSizeModal" class="modal-overlay" onclick="closeGoodsActualSize(event)">
       <div class="modal-box" onclick="event.stopPropagation()">
         <div class="modal-header">
-          <span>🔍 1:1 实际像素预览（与设备显示完全一致）</span>
+          <span>🔍 高清像素预览（2× 放大）</span>
           <button class="modal-close" onclick="closeGoodsActualSize()">✕</button>
         </div>
         <div class="modal-body">
@@ -285,8 +285,8 @@
             <canvas id="goods_canvas_actual"></canvas>
           </div>
           <p class="form-hint" style="margin-top: 12px;">
-            这个 250×122 画布与设备物理像素 1:1 对应。<br>
-            <strong>这里看起来什么样，设备上就什么样。</strong>
+            使用整数倍像素放大和高 DPI 渲染，细小文字边缘更清楚。<br>
+            <strong>放大只影响网页预览，设备仍按 250×122 像素输出。</strong>
           </p>
         </div>
       </div>
