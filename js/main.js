@@ -690,8 +690,17 @@ function drawImageContain(ctx, img, x, y, w, h) {
 function canvasRefreshGoods() {
   const canvas = document.getElementById('goods_canvas');
   if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+
+  // 文字先在 4 倍分辨率上绘制，再高质量缩小到设备像素。
+  // 这能保留更多圆弧轮廓，避免小字号直接栅格化产生明显锯齿。
+  const renderScale = 4;
+  const renderCanvas = document.createElement('canvas');
+  renderCanvas.width = canvas.width * renderScale;
+  renderCanvas.height = canvas.height * renderScale;
+  const ctx = renderCanvas.getContext('2d');
+  ctx.scale(renderScale, renderScale);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -702,8 +711,8 @@ function canvasRefreshGoods() {
   const origin = document.getElementById('goods_origin').value || '';
   const subTitle = document.getElementById('goods_subtitle').value || '';
 
-  const uiFont = '"Microsoft YaHei", "PingFang SC", Arial, sans-serif';
-  const numberFont = 'Arial, "Microsoft YaHei", sans-serif';
+  const uiFont = '"Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif';
+  const numberFont = '"Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif';
 
   // 1. 红色商品栏：比旧版更高，让名称成为清晰的第一视觉层级
   ctx.fillStyle = '#FF0000';
@@ -759,9 +768,7 @@ function canvasRefreshGoods() {
   const qrX = 198, qrY = 29, qrW = 42, qrH = 42;
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(qrX - 3, qrY - 3, qrW + 6, qrH + 6);
-  if (qrImageBitmap) {
-    drawImageContain(ctx, qrImageBitmap, qrX, qrY, qrW, qrH);
-  } else {
+  if (!qrImageBitmap) {
     ctx.strokeStyle = '#B8B8B8';
     ctx.setLineDash([3, 2]);
     ctx.strokeRect(qrX, qrY, qrW, qrH);
@@ -784,9 +791,7 @@ function canvasRefreshGoods() {
 
   // 6. 底部：条形码与说明分栏，沿用参考模板的留白比例
   const barX = 7, barY = 82, barW = 116, barH = 26;
-  if (barImageBitmap) {
-    drawImageContain(ctx, barImageBitmap, barX, barY, barW, barH);
-  } else {
+  if (!barImageBitmap) {
     ctx.strokeStyle = '#B8B8B8';
     ctx.setLineDash([3, 2]);
     ctx.strokeRect(barX, barY, barW, barH);
@@ -817,8 +822,23 @@ function canvasRefreshGoods() {
   drawFitText(ctx, origin, 135, 96, 108, 14, 10, uiFont, '700 ');
   drawFitText(ctx, subTitle, 135, 117, 108, 14, 10, uiFont, '700 ');
 
-  // 三色阈值：阈值 180 让文字抗锯齿浅灰边被判黑（避免 1-2px 细笔画断裂）
-  convertDithering(canvas, 'bwr_none', 180);
+  // 将高分辨率文字缩到设备画布，保留更圆润、更均匀的笔画轮廓。
+  const outputCtx = canvas.getContext('2d');
+  outputCtx.clearRect(0, 0, canvas.width, canvas.height);
+  outputCtx.imageSmoothingEnabled = true;
+  outputCtx.imageSmoothingQuality = 'high';
+  outputCtx.drawImage(renderCanvas, 0, 0, canvas.width, canvas.height);
+
+  // 二维码和条形码最后按设备像素直接覆盖，避免高质量缩放使码点发糊。
+  if (qrImageBitmap) {
+    drawImageContain(outputCtx, qrImageBitmap, qrX, qrY, qrW, qrH);
+  }
+  if (barImageBitmap) {
+    drawImageContain(outputCtx, barImageBitmap, barX, barY, barW, barH);
+  }
+
+  // 较低阈值可减少笔画外沿过度增粗，让圆角和字腔更自然。
+  convertDithering(canvas, 'bwr_none', 160);
 }
 
 /** 商品标签 → 上传到设备 */
